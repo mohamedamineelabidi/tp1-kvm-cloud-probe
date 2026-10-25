@@ -20,7 +20,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
             cpu-checker imagemagick libvirt-clients libvirt-daemon-system \
             qemu-kvm qemu-system-gui qemu-system-x86 qemu-utils \
-            x11-xserver-utils xterm xvfb
+            x11-utils x11-xserver-utils xterm xvfb
           mkdir -p captures
 
       - name: Exécuter les commandes et capturer chaque résultat
