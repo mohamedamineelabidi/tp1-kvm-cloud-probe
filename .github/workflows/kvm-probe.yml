@@ -1,0 +1,80 @@
+name: Diagnostic KVM gratuit pour le TP1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kvm-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Informations du runner
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          lscpu
+          free -h
+          df -h /
+
+      - name: Vérifier les extensions de virtualisation et /dev/kvm
+        shell: bash
+        run: |
+          set -euxo pipefail
+          grep -E -m1 -o '(vmx|svm)' /proc/cpuinfo
+          test -c /dev/kvm
+          ls -l /dev/kvm
+
+      - name: Donner au compte runner l'accès à KVM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+
+      - name: Installer les outils du sujet
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            cpu-checker qemu-system-x86 qemu-system-gui qemu-utils
+          kvm-ok
+          qemu-system-x86_64 --version
+          qemu-img --version
+
+      - name: Démarrer QEMU avec l'accélérateur KVM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          qemu-system-x86_64 \
+            -accel kvm \
+            -machine pc \
+            -nodefaults \
+            -display none \
+            -S \
+            -daemonize \
+            -pidfile qemu.pid
+          test -s qemu.pid
+          kill "$(cat qemu.pid)"
+
+      - name: Vérifier la création des disques demandés par le TP
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/vservers"
+          qemu-img create -f qcow2 "$HOME/vservers/win7.qcow2" 9G
+          qemu-img create -f qcow2 "$HOME/vservers/ubuntu.qcow2" 10G
+          qemu-img info "$HOME/vservers/win7.qcow2"
+          qemu-img info "$HOME/vservers/ubuntu.qcow2"
+          ls -lh "$HOME/vservers"
+          du -h "$HOME/vservers"/*.qcow2
+
